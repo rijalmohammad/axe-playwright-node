@@ -10,6 +10,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
+app.options('*', cors());
+
 app.get("/scan", async (req, res) => {
   const url = req.query.url;
 
@@ -152,4 +154,4 @@ var server = app.listen(port, () => {
   console.log("Analyze API listening on port", port);
 });
 
-server.setTimeout(500000);
+server.setTimeout(2147483647);
