@@ -84,14 +84,6 @@ app.get("/scan", async (req, res) => {
 
     const impactTotal = critical + serious + moderate + minor;
 
-    // const impactStatistics = {
-    //   critical: critical,
-    //   serious: serious,
-    //   moderate: moderate,
-    //   minor: minor,
-    //   impactTotal: impactTotal,
-    // };
-
     const impactStatistics = [
         {
             impact: 'critical',
@@ -138,14 +130,16 @@ app.get("/scan", async (req, res) => {
     basicWebpage.impactStatistics = impactStatistics;
     basicWebpage.foundStatistics = foundStatistics;
 
+    await browser.close();
+
     res.status(200).send(basicWebpage);
   } catch (e) {
+    await browser.close();
+
     res.status(500).send(e);
     console.log(e);
     // do something with the error
   }
-
-  await browser.close();
 });
 
 const port = process.env.PORT || 8080;
