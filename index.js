@@ -114,15 +114,15 @@ app.get("/scan", async (req, res) => {
 
     const foundStatistics = [
         {
-            typeFound: 'automatic',
+            found: 'automatic',
             count: automatic,
         },
         {
-            typeFound: 'guided',
+            found: 'guided',
             count: 0,
         },
         {
-            typeFound: 'needs review',
+            found: 'needsReview',
             count: 0,
         },
     ];
