@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-app.options('*', cors());
+app.options("*", cors());
 
 app.get("/scan", async (req, res) => {
   const url = req.query.url;
@@ -21,10 +21,15 @@ app.get("/scan", async (req, res) => {
 
   await page.goto(url);
 
+  const title = await page.title();
+
   try {
-    const results = await new AxeBuilder({ page }).analyze();
+    const results = await new AxeBuilder({ page })
+      .options({ resultTypes: ["violations", "incomplete"] })
+      .analyze();
+
     const basicWebpage = {
-      name: "",
+      name: title,
       url: results.url,
       scanTime: results.timestamp,
       issues: [],
@@ -36,115 +41,113 @@ app.get("/scan", async (req, res) => {
     let minor = 0;
 
     let automatic = 0;
+    let needsReview = 0;
 
-    const allIsues = results.violations;
+    const allIssues = [...results.incomplete, ...results.violations];
 
-    for (const issue of allIsues) {
-      const issueObj = {
-        name: issue.help,
-        impact: issue.impact,
-        found: "automatic",
-        note: "",
-        occurences: [],
-        criteria: [],
-      };
+    const incompleteIndex = results.incomplete.length;
 
-      const nodes = issue.nodes || []
+    const filteredIssues = allIssues.reduce((obj, item, index) => {
+      const occurences = item.nodes.map((node) => {
+        if (node.impact === "serious") {
+          serious += 1;
+        } else if (node.impact === "moderate") {
+          moderate += 1;
+        } else if (node.impact === "minor") {
+          minor += 1;
+        } else if (node.impact === "critical") {
+          critical += 1;
+        }
 
-      for (const node of nodes) {
-        const occurenceObj = {
-          description: issue.description,
+        if (index < incompleteIndex) {
+          needsReview += 1;
+        }
+
+        automatic += 1;
+
+        return {
+          description: item.description,
           location: node.target[0],
           source: node.html,
           fix: node.failureSummary,
+          needsReview: index < incompleteIndex,
         };
-        issueObj.occurences.push(occurenceObj);
+      });
 
-        if(node.impact === "serious"){
-          serious+=1;
-        } else if(node.impact === "moderate"){
-          moderate+=1;
-        } else if(node.impact === "minor"){
-          minor+=1;
-        } else if(node.impact === "critical"){
-          critical+=1;
-        }
+      const tags = item.tags.map((tag) => ({
+        criteriaId: tag,
+        ...criteriaData[tag],
+      }));
 
-        automatic+=1;
-      }
+      obj[item.id]
+        ? obj[item.id].occurences.push(...occurences)
+        : (obj[item.id] = {
+            id: item.id,
+            name: item.help,
+            impact: item.impact,
+            found: "automatic",
+            notes: "",
+            occurences: occurences,
+            tags: tags,
+          });
 
-      const tags = issue.tags || []
+      return obj;
+    }, {});
 
-      for (const tag of tags) {
-        issueObj.criteria.push({ criteriaId: tag, ...criteriaData[tag] });
-      }
+    basicWebpage.issues = Object.values(filteredIssues);
 
-      basicWebpage.issues.push(issueObj);
-    }
-
-    const impactTotal = critical + serious + moderate + minor;
-
-    const impactStatistics = [
-        {
-            impact: 'critical',
-            count: critical,
-        },
-        {
-            impact: 'serious',
-            count: serious,
-        },
-        {
-            impact: 'moderate',
-            count: moderate,
-        },
-        {
-            impact: 'minor',
-            count: minor,
-        },
-    ]
-
-    const foundTotal = automatic;
-
-    // const foundStatistics = {
-    //   automatic: automatic,
-    //   guided: 0,
-    //   needsReview: 0,
-    //   foundTotal: foundTotal,
-    // }
-
-    const foundStatistics = [
-        {
-            found: 'automatic',
-            count: automatic,
-        },
-        {
-            found: 'guided',
-            count: 0,
-        },
-        {
-            found: 'needsReview',
-            count: 0,
-        },
+    basicWebpage.impactStatistics = [
+      {
+        impact: "critical",
+        count: critical,
+      },
+      {
+        impact: "serious",
+        count: serious,
+      },
+      {
+        impact: "moderate",
+        count: moderate,
+      },
+      {
+        impact: "minor",
+        count: minor,
+      },
     ];
 
-    basicWebpage.impactStatistics = impactStatistics;
-    basicWebpage.foundStatistics = foundStatistics;
+    basicWebpage.foundStatistics = [
+      {
+        found: "automatic",
+        count: automatic,
+      },
+      {
+        found: "guided",
+        count: 0,
+      },
+      {
+        found: "needsReview",
+        count: needsReview,
+      },
+    ];
 
     await browser.close();
-
-    res.status(200).send(basicWebpage);
+    res.status(200).send(results);
   } catch (e) {
     await browser.close();
 
-    res.status(500).send(e);
-    console.log(e);
-    // do something with the error
+    const errorMessage = {
+      status: "error",
+      messages: e,
+    };
+
+    res.status(500).send(errorMessage);
+    console.log(errorMessage);
   }
 });
 
 const port = process.env.PORT || 8080;
 
-var server = app.listen(port, () => {   
+var server = app.listen(port, () => {
   console.log("Analyze API listening on port", port);
 });
 
