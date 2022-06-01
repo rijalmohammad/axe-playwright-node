@@ -131,7 +131,7 @@ app.get("/scan", async (req, res) => {
     ];
 
     await browser.close();
-    res.status(200).send(results);
+    res.status(200).send(basicWebpage);
   } catch (e) {
     await browser.close();
 
