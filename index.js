@@ -88,7 +88,7 @@ app.get("/scan", async (req, res) => {
             found: "automatic",
             notes: "",
             occurences: occurences,
-            tags: tags,
+            criteria: tags,
           });
 
       return obj;
