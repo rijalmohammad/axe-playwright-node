@@ -29,7 +29,7 @@ app.get("/scan", async (req, res) => {
       .analyze();
 
     const basicWebpage = {
-      name: title,
+      webpageName: title,
       url: results.url,
       scanTime: results.timestamp,
       issues: [],
